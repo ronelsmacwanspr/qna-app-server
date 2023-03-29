@@ -9,6 +9,8 @@ let {
 const _ = require("lodash");
 const { GraphQLError } = require("graphql");
 const { User } = require("./models/User");
+const { Question } = require("./models/Question");
+const { Answer } = require("./models/Answer");
 // const _books = [{name : 'Book-1'} , {name : 'Book-2'} , {name : 'Book-3'} , {name : 'Book-4'}];
 
 // const _persons = [{gender : 'MALE' , favBooks :null} ,
@@ -74,6 +76,15 @@ class noSuchAnswerError extends GraphQLError {
   }
 }
 
+class noSuchQuestionError extends GraphQLError {
+  constructor({ id }) {
+    super();
+    this.message = `No Such question with Id : ${id}`;
+  }
+}
+
+const QUESTION_SEND_MAX_LIMIT = 100;
+
 const typeDefs = `
   type Question{
     id : ID!
@@ -115,7 +126,7 @@ const typeDefs = `
 
   
   type Query{
-    questions : [Question!]
+    questions(first : Int) : [Question!]
     answers : [Answer!]
     question(id:ID!) : Question
     user(id : Int!) : User
@@ -128,6 +139,19 @@ const typeDefs = `
     from : String
     bio : String
 
+  }
+
+  input QuestionInput{
+    userId : Int!
+    categories : [String!]
+    title : String!
+    description : String
+  }
+
+  input AnswerInput{
+    userId : Int!
+    description : String!
+    questionId : ID!
   }
 
   type UserVoteActionResponse{
@@ -144,6 +168,9 @@ const typeDefs = `
     addDownvotedAnswerId(userId : Int! , answerId : ID!) : UserVoteActionResponse!
     removeUpvotedAnswerId(userId : Int! , answerId : ID!) : UserVoteActionResponse!
     removeDownvotedAnswerId(userId : Int! , answerId : ID!) : UserVoteActionResponse!
+    addQuestion(inputQuestion : QuestionInput!) : Question!
+    addAnswer(inputAnswer : AnswerInput!) : Answer!
+
   }
 `;
 
@@ -152,14 +179,22 @@ const resolvers = {
     answers() {
       return answers;
     },
-    questions() {
-      return questions;
+    questions(parent, args) {
+      const { first } = args;
+      if (first !== 0 && (first === null || first === undefined))
+        return questions.slice(0, QUESTION_SEND_MAX_LIMIT);
+      if (first < 0) {
+        throw new GraphQLError("negative num of questions asked");
+      }
+
+      const send = Math.min(first, QUESTION_SEND_MAX_LIMIT);
+      return questions.slice(0, send);
     },
     question(parent, args) {
       const { id } = args;
       const result = _.find(questions, (_ques) => _ques.id === id);
       if (!result) {
-        throw new GraphQLError("No such user exists", {
+        throw new GraphQLError("No such question exists", {
           extensions: { code: "BAD_USER_INPUT", id: id },
         });
       }
@@ -174,7 +209,7 @@ const resolvers = {
     },
     loggedInUser(par, args, contextValue) {
       const { userId } = contextValue;
-      console.log("userId", userId);
+      // console.log("userId", userId);
       console.log("users", users);
       if (userId >= 0 && userId < users.length) return users[userId];
       return null;
@@ -187,10 +222,8 @@ const resolvers = {
     },
     firstNAnswers(parent, args) {
       const { num } = args;
-      if (num < 0) {
-        throw new GraphQLError("Negative number of answers asked", {
-          extensions: { code: "BAD_USER_INPUT" },
-        });
+      if (num <= 0) {
+        return null;
       }
       const res = [];
       const _question = _.find(questions, (q) => q.id === parent.id);
@@ -215,8 +248,11 @@ const resolvers = {
     upvotedAnswers(parent) {
       const { id: userId } = parent;
       //get currentUser from userId
+      if (userId < 0 || userId >= users.length) {
+        throw new noSuchUserError({ id: userId });
+      }
 
-      const res = currentUser.upvotedAnswerIds.map((_ansId) => {
+      const res = users[userId].upvotedAnswerIds.map((_ansId) => {
         const _ans = _.find(answers, (a) => a.id === _ansId);
         if (!_ans) {
           throw new GraphQLError("Invalid data on server", {
@@ -231,8 +267,11 @@ const resolvers = {
     downvotedAnswers(parent) {
       const { id: userId } = parent;
       //get currentUser from userId
+      if (userId < 0 || userId >= users.length) {
+        throw new noSuchUserError({ id: userId });
+      }
 
-      const res = currentUser.downvotedAnswerIds.map((_ansId) => {
+      const res = users[userId].downvotedAnswerIds.map((_ansId) => {
         const _ans = _.find(answers, (a) => a.id === _ansId);
         if (!_ans) {
           throw new GraphQLError("Invalid data on server", {
@@ -247,7 +286,12 @@ const resolvers = {
     questions(parent) {
       const { id: userId } = parent;
       //get currentUser from userId
-      const res = currentUser.questionIds.map((_quesId) => {
+
+      if (userId < 0 || userId >= users.length) {
+        throw new noSuchUserError({ id: userId });
+      }
+
+      const res = users[userId].questionIds.map((_quesId) => {
         const _ques = _.find(questions, (q) => q.id === _quesId);
 
         if (!_ques) {
@@ -263,7 +307,11 @@ const resolvers = {
     answers(parent) {
       const { id: userId } = parent;
       //get currentUser from userId
-      const res = currentUser.answerIds.map((_ansId) => {
+      if (userId < 0 || userId >= users.length) {
+        throw new noSuchUserError({ id: userId });
+      }
+
+      const res = users[userId].answerIds.map((_ansId) => {
         const _ans = _.find(answers, (a) => a.id === _ansId);
         if (!_ans) {
           throw new GraphQLError("Invalid data on server", {
@@ -279,7 +327,7 @@ const resolvers = {
 
   Mutation: {
     addUser(par, args) {
-      console.log("args", args);
+      // console.log("args", args);
       const { inputUser } = args;
       const id = users.length,
         { name, bio, from } = inputUser;
@@ -431,6 +479,75 @@ const resolvers = {
       } else {
         throw new noSuchUserError({ id: userId });
       }
+    },
+    addQuestion(parent, args) {
+      const { title, description, categories, userId } = args.inputQuestion;
+
+      if (userId < 0 || userId >= users.length) {
+        throw new noSuchUserError({ id: userId });
+      }
+
+      const id = `q-${questions.length}`,
+        date = new Date(),
+        day = date.getDate(),
+        month = date.getMonth() + 1,
+        year = date.getFullYear(),
+        datePosted = `${day}/${month}/${year}`;
+
+      const user = users[userId];
+      const _ques = new Question({
+        id,
+        userId,
+        title,
+        description,
+        categories,
+        datePosted,
+      });
+
+      user.questionIds.push(id);
+      questions.push(_ques);
+      console.log("questions", questions);
+      return _ques;
+    },
+    addAnswer(parent, args) {
+      const { description, questionId, userId } = args.inputAnswer;
+
+      if (userId < 0 || userId >= users.length) {
+        throw new noSuchUserError({ id: userId });
+      }
+
+      const id = `a-${answers.length}`,
+        date = new Date(),
+        day = date.getDate(),
+        month = date.getMonth() + 1,
+        year = date.getFullYear(),
+        datePosted = `${day}/${month}/${year}`;
+
+      const user = users[userId];
+
+      const _answer = new Answer({
+        id,
+        description,
+        userId,
+        datePosted,
+        questionId,
+      });
+
+      const correspondingQuestion = _.find(
+        questions,
+        (q) => q.id === questionId
+      );
+
+      if (!correspondingQuestion) {
+        throw new noSuchQuestionError({ id: questionId });
+      }
+
+      user.answerIds.push(id);
+      correspondingQuestion.answerIds.push(id);
+      answers.push(_answer);
+
+      console.log("new ans is", _answer);
+      return _answer;
     },
   },
 };

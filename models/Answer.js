@@ -13,8 +13,8 @@ class Answer {
     this.description = description;
     this.userId = userId;
     this.datePosted = datePosted;
-    this.numUpvotes = numUpvotes;
-    this.numDownvotes = numDownvotes;
+    this.numUpvotes = numUpvotes || 0;
+    this.numDownvotes = numDownvotes || 0;
   }
 }
 

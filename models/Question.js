@@ -13,7 +13,7 @@ class Question {
     this.datePosted = datePosted;
     this.categories = !categories ? [] : categories;
     this.title = title;
-    this.description = description;
+    this.description = description || "";
     this.answerIds = !answerIds ? [] : answerIds;
   }
 }
