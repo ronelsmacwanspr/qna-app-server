@@ -82,15 +82,14 @@ function generateAnswers(questions, answersArray, currentUser) {
         userId: currentUser.id,
         numUpvotes: 30,
         numDownvotes: 20,
-        description: `Lorem ipsum dolor sit amet, consectetur adipiscing 
-        elit. Integer nec tellus in quam eleifend interdum. Sed at ex rhoncus, porttitor lectus ut, faucibus tellus. Nulla 
-       lacus libero, condimentum eget sapien mattis, ullamcorper iaculis eros. Nullam sit amet felis vehicula, suscipit 
-        lorem utmalesuada tellus semper at. Donec rutrum id ipsum quis semper. Donec eget lacus a turpis maximus 
-        pellentesque sit amet at nibh. Sed mattis dui vitae metus tempus pulvinar. Lorem ipsum dolor sit amet, consectetur adipiscing 
-        elit. Vestibulum sed tortor enim. Sed ornare, metus nec faucibus rhoncus, nunc turpis ultricies metus, ut venenatis lorem ante 
-        eget augue. Vivamus tortor leo, euismod ac pulvinar at, porta vel arcu. Suspendisse sit amet commodo justo. 
-        Nulla ligula sapien, sollicitudin vel molestie et, tempor eget odio. Vivamus ullamcorper quam id finibus sollicitudin. 
-        Suspendisse `,
+        description: `Hi this is my fist answer on QnA web app. Hope you like it.
+        
+        The fundamental difference of getting good at anything is to be consistent with it.Learnt it and practice
+        it daily without fail. Ask your mentors your doubts and never hesistate on that.
+
+        Make sure to spned atleast 1 hr everyday to learn side things you're intrested in.Not just JavaScript, everything in the known universe can be learned & perfected via practice.
+        Start building stuff with Javascript. If you think you’ll learn everything about JavaScript before starting, then you’ll never see daylight. You cannot learn everything about JavaScript. More importantly, you cannot remember everything you learn about Javascript.
+        `,
       });
 
       question.answerIds.push(answer.id);

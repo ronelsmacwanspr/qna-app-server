@@ -96,6 +96,7 @@ const typeDefs = `
     answers : [Answer!]
     answerIds : [String!]!
     firstNAnswers(num : Int!) : [Answer!]
+    user : User!
   }
 
   type Answer{
@@ -107,6 +108,7 @@ const typeDefs = `
     numUpvotes : Int!
     numDownvotes : Int!
     question : Question!
+    user : User
   }
 
   type User{
@@ -129,6 +131,7 @@ const typeDefs = `
     questions(first : Int) : [Question!]
     answers : [Answer!]
     question(id:ID!) : Question
+    answer(id : ID!) : Answer
     user(id : Int!) : User
     loggedInUser : User
   }
@@ -193,12 +196,12 @@ const resolvers = {
     question(parent, args) {
       const { id } = args;
       const result = _.find(questions, (_ques) => _ques.id === id);
-      if (!result) {
-        throw new GraphQLError("No such question exists", {
-          extensions: { code: "BAD_USER_INPUT", id: id },
-        });
-      }
       return result;
+    },
+    answer(parent, args) {
+      const { id } = args;
+      const _ans = _.find(answers, (ans) => ans.id === id);
+      return _ans;
     },
     user(parent, args) {
       const { id } = args;
@@ -209,13 +212,20 @@ const resolvers = {
     },
     loggedInUser(par, args, contextValue) {
       const { userId } = contextValue;
-      // console.log("userId", userId);
       console.log("users", users);
+      console.log("userId", userId);
       if (userId >= 0 && userId < users.length) return users[userId];
       return null;
     },
   },
   Question: {
+    user(parent) {
+      const { userId } = parent;
+      if (userId < 0 || userId >= users.length) {
+        throw noSuchUserError({ id: userId });
+      }
+      return users[userId];
+    },
     answers(parent) {
       const res = _.filter(answers, (_ans) => _ans.questionId === parent.id);
       return res;
@@ -242,6 +252,15 @@ const resolvers = {
     question(parent) {
       const res = _.find(questions, (_ques) => _ques.id === parent.questionId);
       return res;
+    },
+    user(parent) {
+      const { userId } = parent;
+      if (userId === null || userId === undefined) return null;
+
+      if (typeof userId !== "number" || userId < 0 || userId >= users.length) {
+        throw new noSuchUserError({ id: userId });
+      }
+      return users[userId];
     },
   },
   User: {
@@ -558,7 +577,7 @@ const server = new ApolloServer({
 
 const startServer = async () => {
   const { url } = await startStandaloneServer(server, {
-    listen: { port: 4000 },
+    listen: { port: 4001 },
     context: async ({ req, res }) => {
       const userId = req.headers.authorization;
       // console.log("user-id in header", userId);
